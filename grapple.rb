@@ -1,0 +1,243 @@
+require 'rubygems' rescue nil
+require 'gosu'
+require 'chipmunk'
+
+class Array
+  # e.g. [1,2,3].each_link yields [1,2], [2,3]
+  def each_link
+    prev = first
+    self[1, size].each do |item|
+      yield prev, item
+      prev = item
+    end
+  end
+end
+
+# Convenience methods for converting between Gosu degrees, radians, and Vec2 vectors
+class Numeric 
+  def gosu_to_radians
+    (self - 90) * Math::PI / 180.0
+  end
+  
+  def radians_to_gosu
+    self * 180.0 / Math::PI + 90
+  end
+  
+  def radians_to_vec2
+    CP::Vec2.new(Math::cos(self), Math::sin(self))
+  end
+end
+
+# A grappling hook demo
+module Grapple
+
+  SCREEN_WIDTH = 800
+  SCREEN_HEIGHT = 600
+
+  INF = 1e100
+
+  # The number of steps to process every Gosu update The Player ship can get
+  # going so fast as to "move through" a star without triggering a collision;
+  # an increased number of Chipmunk step calls per update will effectively
+  # avoid this issue
+  SUBSTEPS = 6
+
+  class Rope
+    include CP
+
+    attr_reader :links
+
+    def initialize(window, space, options=nil)
+      options ||= {}
+      @length = options[:length] || 100
+      @window = window
+      @links = []
+      @length.times do |n|
+        link = Body.new(1, 0.1)
+        seg = Shape::Circle.new(link, 0.1, Vec2.new(0.0, 0.0))
+        seg.collision_type = :rope
+        seg.u = 0.5
+        seg.group = :grapple
+        space.add_body(link)
+        space.add_shape(seg)
+        @links << link
+      end
+
+      @links.each_link do |prev, link|
+        joint = Joint::Slide.new(prev, link, Vec2.new(0.0, 0.0), Vec2.new(1.0, 0.0), 0.1, 4.0)
+        space.add_joint(joint)
+      end
+    end
+
+    def draw
+      draw_gradient
+    end
+
+    def draw_segments
+      col1 = Gosu::Color.new(0xffff0000)
+      col2 = Gosu::Color.new(0xffffff00)
+      @links.each_link do |prev, link|
+        @window.draw_line(prev.p.x, prev.p.y, col1, link.p.x, link.p.y, col2)
+      end
+    end
+
+    def draw_gradient
+      col = Gosu::Color.new(0xffff0000)
+      i = 0
+      @links.each_link do |prev, link|
+        col.green = (255*i / @links.size)
+        @window.draw_line(prev.p.x, prev.p.y, col, link.p.x, link.p.y, col)
+        i += 1
+      end
+    end
+  end
+
+  class Ground
+    include CP
+
+    attr_reader :body
+
+    def initialize(window, space)
+      @window = window
+      @links = []
+      @body = Body.new(INF, INF)
+      @p1, @p2 = Vec2.new(0, 500), Vec2.new(SCREEN_WIDTH, 440)
+      @width = 50
+      @seg = Shape::Segment.new(@body, @p1, @p2, @width)
+      @seg.collision_type = :ground
+      @seg.u = 0.99
+      space.add_static_shape(@seg)
+    end
+
+    def draw
+      col = Gosu::Color.new(0xff0000ff)
+      @window.draw_line(@p1.x, @p1.y - @width, col, @p2.x, @p2.y - @width, col)
+    end
+  end
+
+  class GrappleHook
+    include CP
+
+    attr_reader :body
+    attr_reader :shape
+
+    def initialize(window, space, options=nil)
+      options ||= {}
+      @window = window
+      @links = []
+      @body = Body.new(options[:mass] || 10, options[:moment] || 10)
+      @vertices = [
+        [-5, -50],
+        [-5, 25],
+        [-22, 25],
+        [-37, 15],
+        [-27, 35],
+        [-5, 35],
+        [0, 50],
+        [5, 35],
+        [27, 35],
+        [37, 15],
+        [25, 25],
+        [5, 25],
+        [5, -50],
+      ].map{|x,y| Vec2.new(0.4*x, 0.4*y) }
+      @shape = Shape::Poly.new(@body, @vertices, Vec2.new(0,0)) # body, verts, offset
+      @shape.collision_type = :hook
+      @shape.u = 0.99
+      @shape.group = :grapple
+      @image = Gosu::Image.new(window, "grapple.png", false)
+      space.add_body(@body)
+      space.add_shape(@shape)
+    end
+
+    def draw
+      @image.draw_rot(@body.p.x, @body.p.y, 0, @body.a.radians_to_gosu)
+      col = Gosu::Color.new(0xffff0000)
+      # doesn't account for rotation, but gives us an idea
+      #@vertices.each_link do |a, b|
+        #@window.draw_line(@body.p.x + a.x, @body.p.y + a.y, col, @body.p.x + b.x, @body.p.y + b.y, col)
+      #end
+    end
+  end
+
+  class GameWindow < Gosu::Window
+    include CP
+
+    def initialize
+      super(SCREEN_WIDTH, SCREEN_HEIGHT, false, 16)
+      self.caption = "Grapple"
+
+      @space = Space.new
+      @space.damping = 0.8    
+      @space.gravity = Vec2.new(0.0, 10.0)
+      @dt = (1.0/60.0)
+
+      @ground = Ground.new(self, @space)
+
+      @rope = Rope.new(self, @space, :length => 15)
+      @hook = GrappleHook.new(self, @space)
+      joint = Joint::Pin.new(@hook.body, @rope.links.last, Vec2.new(-10.0, 0.0), Vec2.new(0.0, 0.0))
+      @space.add_joint(joint)
+      @rope.links.each_with_index{|link, i| link.p = Vec2.new(300 + 100*Math.sin(i.to_f * Math::PI*2 / @rope.links.size), 200) }
+      @hook.body.p = Vec2.new(350, 200)
+
+      attach = Joint::Slide.new(@ground.body, @rope.links.first, Vec2.new(300.0, 400.0), Vec2.new(0.0, 0.0), 0, 0)
+      @space.add_joint(attach)
+
+      @rope2 = Rope.new(self, @space, :length => 10)
+      hanging = Body.new(INF, INF)
+      joint = Joint::Pin.new(hanging, @rope2.links.first, Vec2.new(0.0, 0.0), Vec2.new(0.0, 0.0))
+      @space.add_joint(joint)
+      @rope2.links.each_with_index{|link, i| link.p = Vec2.new(100 - 10*i, 200) }
+      hanging.p = Vec2.new(150, 0)
+
+      @space.add_collision_func(:hook, :hook) do
+        p 'hook hook ' + rand.to_s
+      end
+      @space.add_collision_func(:rope, :rope) do
+        p 'rope rope ' + rand.to_s
+      end
+      @space.add_collision_func(:hook, :rope) do
+        p 'hook rope ' + rand.to_s
+      end
+      @space.add_collision_func(:rope, :hook) do
+        p 'rope hook ' + rand.to_s
+      end
+      @space.add_collision_func(:hook, :ground) do |hook, ground|
+        p 'hook ground ' + rand.to_s
+      end
+    end
+
+    def update
+      SUBSTEPS.times do
+        # Check keyboard
+        if button_down? Gosu::Button::KbSpace
+          @hook.body.v = Vec2.new(50, -200)
+        end
+        if button_down? char_to_button_id('r')
+          @hook.body.v = Vec2.new(-50, 0)
+        end
+        @space.step(@dt)
+      end
+    end
+
+    def draw
+      @rope.draw
+      @rope2.draw
+      @ground.draw
+      @hook.draw
+    end
+
+    def button_down(id)
+      case id
+      when Gosu::Button::KbEscape, char_to_button_id('q')
+        close
+      end
+    end
+  end
+end
+
+if $0 == __FILE__
+  window = Grapple::GameWindow.new
+  window.show
+end
