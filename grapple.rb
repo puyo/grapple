@@ -72,13 +72,6 @@ class Numeric
   end
 end
 
-class CP::Vec2
-  @@zero = CP::Vec2.new(0.0, 0.0)
-  def self.zero
-    @@zero
-  end
-end
-
 # A grappling hook demo
 module Grapple
 
@@ -109,7 +102,7 @@ module Grapple
       @circles = []
       @length.times do |n|
         link = Body.new(10, 10)
-        seg = Shape::Circle.new(link, 1.0, Vec2.zero)
+        seg = Shape::Circle.new(link, 1.0, Vec2.new(0, 0))
         #seg = Shape::Segment.new(link, Vec2.new(0, 0), Vec2.new(1, 0), 1)
         seg.collision_type = :rope
         seg.u = 0.5
