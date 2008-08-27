@@ -34,6 +34,29 @@ def draw_poly(window, body, vertexes, colour)
   end
 end
 
+def draw_segment(window, body, vertexes, width, colour)
+  a, b = vertexes[0], vertexes[1]
+  a = rot_point(body, a)
+  b = rot_point(body, b)
+  window.draw_line(a.x, a.y - width, colour, b.x, b.y - width, colour)
+  window.draw_line(a.x, a.y + width, colour, b.x, b.y + width, colour)
+end
+
+def draw_circle(window, body, radius, colour, options=nil)
+  options ||= {}
+  segs = options[:segments] || 32
+  coef = 2.0*Math::PI / segs
+
+  verts = []
+  segs.times do |n|
+    rads = n*coef
+    verts << CP::Vec2.new(radius*Math.cos(rads + body.a) + body.p.x, radius*Math.sin(rads + body.a) + body.p.y)
+  end
+  verts.each_edge do |a, b|
+    window.draw_line(a.x, a.y, colour, b.x, b.y, colour)
+  end
+end
+
 # Convenience methods for converting between Gosu degrees, radians, and Vec2 vectors
 class Numeric 
   def gosu_to_radians
@@ -46,6 +69,13 @@ class Numeric
   
   def radians_to_vec2
     CP::Vec2.new(Math::cos(self), Math::sin(self))
+  end
+end
+
+class CP::Vec2
+  @@zero = CP::Vec2.new(0.0, 0.0)
+  def self.zero
+    @@zero
   end
 end
 
@@ -69,24 +99,29 @@ module Grapple
     include CP
 
     attr_reader :links
+    attr_reader :circles
 
     def initialize(space, options=nil)
       options ||= {}
+      @space = space
       @length = options[:length] || 100
       @links = []
+      @circles = []
       @length.times do |n|
-        link = Body.new(1, 0.1)
-        seg = Shape::Circle.new(link, 0.1, Vec2.new(0.0, 0.0))
+        link = Body.new(10, 10)
+        seg = Shape::Circle.new(link, 1.0, Vec2.zero)
+        #seg = Shape::Segment.new(link, Vec2.new(0, 0), Vec2.new(1, 0), 1)
         seg.collision_type = :rope
         seg.u = 0.5
         seg.group = :grapple
         space.add_body(link)
         space.add_shape(seg)
         @links << link
+        @circles << seg
       end
 
       @links.each_link do |prev, link|
-        joint = Joint::Slide.new(prev, link, Vec2.new(0.0, 0.0), Vec2.new(1.0, 0.0), 0.1, 4.0)
+        joint = Joint::Slide.new(prev, link, Vec2.new(0.0, 0.0), Vec2.new(1.0, 0.0), 0.1, 10.0)
         space.add_joint(joint)
       end
     end
@@ -111,6 +146,17 @@ module Grapple
         window.draw_line(prev.p.x, prev.p.y, col, link.p.x, link.p.y, col)
         i += 1
       end
+
+      @circles.each do |circle|
+        draw_circle(window, circle.body, 1.0, Gosu::Color.new(0xffffffff))
+      end
+    end
+
+    def remove_first
+      if @links.any?
+        @space.remove_body(@links.shift)
+        @space.remove_shape(@circles.shift)
+      end
     end
   end
 
@@ -131,9 +177,7 @@ module Grapple
     end
 
     def draw(window)
-      col = Gosu::Color.new(0xff0000ff)
-      window.draw_line(@p1.x, @p1.y - @width, col, @p2.x, @p2.y - @width, col)
-      window.draw_line(@p1.x, @p1.y + @width, col, @p2.x, @p2.y + @width, col)
+      draw_segment(window, body, [@p1, @p2], @width, Gosu::Color.new(0xff0000ff))
     end
   end
 
@@ -147,20 +191,41 @@ module Grapple
       @links = []
       @body = Body.new(INF, INF)
       @main_vertexes = [
-        [-100, -100],
-        [-100, 100],
-        [100, 100],
-        [100, -100],
+        [-100, -100], # bottom left
+        [-100, 100], # top left
+        [100, 100], # top right
+        [100, -100], # bottom right
       ].map{|x,y| Vec2.new(x, y) }
-      @shape = Shape::Poly.new(@body, @main_vertexes, Vec2.new(0,0)) # body, verts, offset
-      @shape.collision_type = :castle
-      @shape.group = :castle
-      @shape.u = 0.99
-      space.add_static_shape(@shape)
+      @main_shape = Shape::Poly.new(@body, @main_vertexes, Vec2.new(0,0)) # body, verts, offset
+      @main_shape.collision_type = :castle
+      @main_shape.group = :castle
+      @main_shape.u = 0.99
+      space.add_shape(@main_shape)
+
+      @snag_vertexes = [
+        [-90, -100], # bottom left
+        [-90, -110], # top left
+        [-110, -110], # top right
+        [-110, -100], # bottom right
+      ].map{|x,y| Vec2.new(x, y) }
+      @snag_shape = Shape::Poly.new(@body, @snag_vertexes, Vec2.new(0,0)) # body, verts, offset
+      @snag_shape.collision_type = :castle
+      @snag_shape.group = :castle
+      @snag_shape.u = 0.99
+      space.add_shape(@snag_shape)
+
+      #@radius = 200
+      #@circle = Shape::Circle.new(@body, @radius, Vec2.new(0.0, 0.0))
+      #@circle.collision_type = :castle
+      #@circle.u = 0.5
+      #@circle.group = :castle
+      #space.add_shape(@circle)
     end
 
     def draw(window)
       draw_poly(window, @body, @main_vertexes, Gosu::Color.new(0xffaaaaaa))
+      draw_poly(window, @body, @snag_vertexes, Gosu::Color.new(0xffaaaaaa))
+      #draw_circle(window, @body, @radius, Gosu::Color.new(0xff00ff00))
     end
   end
 
@@ -218,7 +283,7 @@ module Grapple
 
       @grapple_origin = Vec2.new(200.0, 370.0)
 
-      @rope = Rope.new(@space, :length => 15)
+      @rope = Rope.new(@space, :length => 45)
       @hook = GrappleHook.new(@space)
       joint = Joint::Pin.new(@hook.body, @rope.links.last, Vec2.new(0.0, -20.0 * GRAPPLE_SIZE), Vec2.new(0.0, 0.0))
       @space.add_joint(joint)
@@ -287,6 +352,10 @@ module Grapple
       case id
       when Gosu::Button::KbEscape, char_to_button_id('q')
         close
+      when char_to_button_id('p')
+        @rope.remove_first
+        attach = Joint::Slide.new(@ground.body, @rope.links.first, @grapple_origin, Vec2.new(0.0, 0.0), 0, 0)
+        @space.add_joint(attach)
       end
     end
   end
