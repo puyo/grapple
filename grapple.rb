@@ -11,6 +11,12 @@ class Array
       prev = item
     end
   end
+
+  def each_edge
+    size.times do |n|
+      yield self[n], self[(n + 1) % size]
+    end
+  end
 end
 
 # Convenience methods for converting between Gosu degrees, radians, and Vec2 vectors
@@ -26,6 +32,13 @@ class Numeric
   def radians_to_vec2
     CP::Vec2.new(Math::cos(self), Math::sin(self))
   end
+end
+
+def rot_point(body, vec2)
+  x = vec2.x
+  y = vec2.y
+  a = body.a
+  body.p + CP::Vec2.new(x*Math.cos(a) - y*Math.sin(a), x*Math.sin(a) + y*Math.cos(a))
 end
 
 # A grappling hook demo
@@ -47,10 +60,9 @@ module Grapple
 
     attr_reader :links
 
-    def initialize(window, space, options=nil)
+    def initialize(space, options=nil)
       options ||= {}
       @length = options[:length] || 100
-      @window = window
       @links = []
       @length.times do |n|
         link = Body.new(1, 0.1)
@@ -69,24 +81,24 @@ module Grapple
       end
     end
 
-    def draw
-      draw_gradient
+    def draw(window)
+      draw_gradient(window)
     end
 
-    def draw_segments
+    def draw_segments(window)
       col1 = Gosu::Color.new(0xffff0000)
       col2 = Gosu::Color.new(0xffffff00)
       @links.each_link do |prev, link|
-        @window.draw_line(prev.p.x, prev.p.y, col1, link.p.x, link.p.y, col2)
+        window.draw_line(prev.p.x, prev.p.y, col1, link.p.x, link.p.y, col2)
       end
     end
 
-    def draw_gradient
+    def draw_gradient(window)
       col = Gosu::Color.new(0xffff0000)
       i = 0
       @links.each_link do |prev, link|
         col.green = (255*i / @links.size)
-        @window.draw_line(prev.p.x, prev.p.y, col, link.p.x, link.p.y, col)
+        window.draw_line(prev.p.x, prev.p.y, col, link.p.x, link.p.y, col)
         i += 1
       end
     end
@@ -97,8 +109,7 @@ module Grapple
 
     attr_reader :body
 
-    def initialize(window, space)
-      @window = window
+    def initialize(space)
       @links = []
       @body = Body.new(INF, INF)
       @p1, @p2 = Vec2.new(0, 500), Vec2.new(SCREEN_WIDTH, 440)
@@ -109,9 +120,9 @@ module Grapple
       space.add_static_shape(@seg)
     end
 
-    def draw
+    def draw(window)
       col = Gosu::Color.new(0xff0000ff)
-      @window.draw_line(@p1.x, @p1.y - @width, col, @p2.x, @p2.y - @width, col)
+      window.draw_line(@p1.x, @p1.y - @width, col, @p2.x, @p2.y - @width, col)
     end
   end
 
@@ -121,11 +132,10 @@ module Grapple
     attr_reader :body
     attr_reader :shape
 
-    def initialize(window, space, options=nil)
+    def initialize(space, options=nil)
       options ||= {}
-      @window = window
       @links = []
-      @body = Body.new(options[:mass] || 10, options[:moment] || 10)
+      @body = Body.new(options[:mass] || 100, options[:moment] || 100)
       @vertices = [
         [-5, -50],
         [-5, 25],
@@ -140,23 +150,25 @@ module Grapple
         [25, 25],
         [5, 25],
         [5, -50],
-      ].map{|x,y| Vec2.new(0.4*x, 0.4*y) }
+      ].map{|x,y| Vec2.new(0.3*x, 0.3*y) }
       @shape = Shape::Poly.new(@body, @vertices, Vec2.new(0,0)) # body, verts, offset
       @shape.collision_type = :hook
       @shape.u = 0.99
       @shape.group = :grapple
-      @image = Gosu::Image.new(window, "grapple.png", false)
       space.add_body(@body)
       space.add_shape(@shape)
     end
 
-    def draw
-      @image.draw_rot(@body.p.x, @body.p.y, 0, @body.a.radians_to_gosu)
+    def draw(window)
+      #@image ||= Gosu::Image.new(window, "grapple.png", false)
+      #@image.draw_rot(@body.p.x, @body.p.y, 0, @body.a.radians_to_gosu)
+
       col = Gosu::Color.new(0xffff0000)
-      # doesn't account for rotation, but gives us an idea
-      #@vertices.each_link do |a, b|
-        #@window.draw_line(@body.p.x + a.x, @body.p.y + a.y, col, @body.p.x + b.x, @body.p.y + b.y, col)
-      #end
+      @vertices.each_edge do |a, b|
+        a = rot_point(@body, a)
+        b = rot_point(@body, b)
+        window.draw_line(a.x, a.y, col, b.x, b.y, col)
+      end
     end
   end
 
@@ -172,11 +184,11 @@ module Grapple
       @space.gravity = Vec2.new(0.0, 10.0)
       @dt = (1.0/60.0)
 
-      @ground = Ground.new(self, @space)
+      @ground = Ground.new(@space)
 
-      @rope = Rope.new(self, @space, :length => 15)
-      @hook = GrappleHook.new(self, @space)
-      joint = Joint::Pin.new(@hook.body, @rope.links.last, Vec2.new(-10.0, 0.0), Vec2.new(0.0, 0.0))
+      @rope = Rope.new(@space, :length => 15)
+      @hook = GrappleHook.new(@space)
+      joint = Joint::Pin.new(@hook.body, @rope.links.last, Vec2.new(0.0, -20.0 * 0.3), Vec2.new(0.0, 0.0))
       @space.add_joint(joint)
       @rope.links.each_with_index{|link, i| link.p = Vec2.new(300 + 100*Math.sin(i.to_f * Math::PI*2 / @rope.links.size), 200) }
       @hook.body.p = Vec2.new(350, 200)
@@ -184,7 +196,7 @@ module Grapple
       attach = Joint::Slide.new(@ground.body, @rope.links.first, Vec2.new(300.0, 400.0), Vec2.new(0.0, 0.0), 0, 0)
       @space.add_joint(attach)
 
-      @rope2 = Rope.new(self, @space, :length => 10)
+      @rope2 = Rope.new(@space, :length => 10)
       hanging = Body.new(INF, INF)
       joint = Joint::Pin.new(hanging, @rope2.links.first, Vec2.new(0.0, 0.0), Vec2.new(0.0, 0.0))
       @space.add_joint(joint)
@@ -222,10 +234,10 @@ module Grapple
     end
 
     def draw
-      @rope.draw
-      @rope2.draw
-      @ground.draw
-      @hook.draw
+      @rope.draw(self)
+      @rope2.draw(self)
+      @ground.draw(self)
+      @hook.draw(self)
     end
 
     def button_down(id)

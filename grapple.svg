@@ -43,8 +43,8 @@
      showgrid="false"
      inkscape:window-width="831"
      inkscape:window-height="733"
-     inkscape:window-x="941"
-     inkscape:window-y="317" />
+     inkscape:window-x="945"
+     inkscape:window-y="341" />
   <metadata
      id="metadata7">
     <rdf:RDF>
@@ -62,7 +62,7 @@
      id="layer1">
     <path
        style="fill:#ececec;fill-rule:evenodd;stroke:#000000;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
-       d="M -5,1102.3622 L 5,1102.3622 L 5,1027.3622 L 24.535882,1027.3622 L 37,1037.3622 L 27,1017.3622 L 5,1017.3622 L 0,1001.6658 L -5,1017.3622 L -27,1017.3622 L -37,1037.3622 L -22,1027.3622 L -5,1027.3622 L -5,1102.3622 z"
+       d="M -50.3482,1047.014 L -50.3482,1057.014 L 24.6518,1057.014 L 24.6518,1076.5499 L 14.6518,1089.014 L 34.6518,1079.014 L 34.6518,1057.014 L 50.3482,1052.014 L 34.6518,1047.014 L 34.6518,1025.014 L 14.6518,1015.014 L 24.6518,1030.014 L 24.6518,1047.014 L -50.3482,1047.014 z"
        id="grapple"
        sodipodi:nodetypes="cccccccccccccc"
        inkscape:label="#path2387"
