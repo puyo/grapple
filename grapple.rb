@@ -113,7 +113,7 @@ module Grapple
       @links = []
       @body = Body.new(INF, INF)
       @p1, @p2 = Vec2.new(0, 500), Vec2.new(SCREEN_WIDTH, 440)
-      @width = 50
+      @width = 100
       @seg = Shape::Segment.new(@body, @p1, @p2, @width)
       @seg.collision_type = :ground
       @seg.u = 0.99
@@ -123,6 +123,39 @@ module Grapple
     def draw(window)
       col = Gosu::Color.new(0xff0000ff)
       window.draw_line(@p1.x, @p1.y - @width, col, @p2.x, @p2.y - @width, col)
+      window.draw_line(@p1.x, @p1.y + @width, col, @p2.x, @p2.y + @width, col)
+    end
+  end
+
+  class Castle
+    include CP
+
+    attr_reader :body
+
+    def initialize(space, options=nil)
+      options ||= {}
+      @links = []
+      @body = Body.new(INF, INF)
+      @vertices = [
+        [-100, -100],
+        [-100, 100],
+        [100, 100],
+        [100, -100],
+      ].map{|x,y| Vec2.new(x, y) }
+      @shape = Shape::Poly.new(@body, @vertices, Vec2.new(0,0)) # body, verts, offset
+      @shape.collision_type = :castle
+      @shape.group = :castle
+      @shape.u = 0.99
+      space.add_static_shape(@shape)
+    end
+
+    def draw(window)
+      col = Gosu::Color.new(0xffaaaaaa)
+      @vertices.each_edge do |a, b|
+        a = rot_point(@body, a)
+        b = rot_point(@body, b)
+        window.draw_line(a.x, a.y, col, b.x, b.y, col)
+      end
     end
   end
 
@@ -193,7 +226,9 @@ module Grapple
       @rope.links.each_with_index{|link, i| link.p = Vec2.new(300 + 100*Math.sin(i.to_f * Math::PI*2 / @rope.links.size), 200) }
       @hook.body.p = Vec2.new(350, 200)
 
-      attach = Joint::Slide.new(@ground.body, @rope.links.first, Vec2.new(300.0, 400.0), Vec2.new(0.0, 0.0), 0, 0)
+      @grapple_origin = Vec2.new(200.0, 370.0)
+
+      attach = Joint::Slide.new(@ground.body, @rope.links.first, @grapple_origin, Vec2.new(0.0, 0.0), 0, 0)
       @space.add_joint(attach)
 
       @rope2 = Rope.new(@space, :length => 10)
@@ -202,6 +237,9 @@ module Grapple
       @space.add_joint(joint)
       @rope2.links.each_with_index{|link, i| link.p = Vec2.new(100 - 10*i, 200) }
       hanging.p = Vec2.new(150, 0)
+
+      @castle = Castle.new(@space)
+      @castle.body.p = Vec2.new(500, 250)
 
       @space.add_collision_func(:hook, :hook) do
         p 'hook hook ' + rand.to_s
@@ -215,8 +253,14 @@ module Grapple
       @space.add_collision_func(:rope, :hook) do
         p 'rope hook ' + rand.to_s
       end
-      @space.add_collision_func(:hook, :ground) do |hook, ground|
+      @space.add_collision_func(:hook, :ground) do
         p 'hook ground ' + rand.to_s
+      end
+      @space.add_collision_func(:hook, :castle) do
+        p 'hook castle ' + rand.to_s
+      end
+      @space.add_collision_func(:rope, :castle) do
+        p 'rope castle ' + rand.to_s
       end
     end
 
@@ -227,7 +271,8 @@ module Grapple
           @hook.body.v = Vec2.new(50, -200)
         end
         if button_down? char_to_button_id('r')
-          @hook.body.v = Vec2.new(-50, 0)
+          @hook.body.p = @grapple_origin
+          @rope.links.each{|link| link.p = @grapple_origin }
         end
         @space.step(@dt)
       end
@@ -238,6 +283,7 @@ module Grapple
       @rope2.draw(self)
       @ground.draw(self)
       @hook.draw(self)
+      @castle.draw(self)
     end
 
     def button_down(id)
