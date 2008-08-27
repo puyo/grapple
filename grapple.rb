@@ -19,6 +19,21 @@ class Array
   end
 end
 
+def rot_point(body, vec2)
+  x = vec2.x
+  y = vec2.y
+  a = body.a
+  body.p + CP::Vec2.new(x*Math.cos(a) - y*Math.sin(a), x*Math.sin(a) + y*Math.cos(a))
+end
+
+def draw_poly(window, body, vertexes, colour)
+  vertexes.each_edge do |a, b|
+    a = rot_point(body, a)
+    b = rot_point(body, b)
+    window.draw_line(a.x, a.y, colour, b.x, b.y, colour)
+  end
+end
+
 # Convenience methods for converting between Gosu degrees, radians, and Vec2 vectors
 class Numeric 
   def gosu_to_radians
@@ -34,13 +49,6 @@ class Numeric
   end
 end
 
-def rot_point(body, vec2)
-  x = vec2.x
-  y = vec2.y
-  a = body.a
-  body.p + CP::Vec2.new(x*Math.cos(a) - y*Math.sin(a), x*Math.sin(a) + y*Math.cos(a))
-end
-
 # A grappling hook demo
 module Grapple
 
@@ -48,6 +56,8 @@ module Grapple
   SCREEN_HEIGHT = 600
 
   INF = 1e100
+
+  GRAPPLE_SIZE = 0.3
 
   # The number of steps to process every Gosu update The Player ship can get
   # going so fast as to "move through" a star without triggering a collision;
@@ -136,13 +146,13 @@ module Grapple
       options ||= {}
       @links = []
       @body = Body.new(INF, INF)
-      @vertices = [
+      @main_vertexes = [
         [-100, -100],
         [-100, 100],
         [100, 100],
         [100, -100],
       ].map{|x,y| Vec2.new(x, y) }
-      @shape = Shape::Poly.new(@body, @vertices, Vec2.new(0,0)) # body, verts, offset
+      @shape = Shape::Poly.new(@body, @main_vertexes, Vec2.new(0,0)) # body, verts, offset
       @shape.collision_type = :castle
       @shape.group = :castle
       @shape.u = 0.99
@@ -150,12 +160,7 @@ module Grapple
     end
 
     def draw(window)
-      col = Gosu::Color.new(0xffaaaaaa)
-      @vertices.each_edge do |a, b|
-        a = rot_point(@body, a)
-        b = rot_point(@body, b)
-        window.draw_line(a.x, a.y, col, b.x, b.y, col)
-      end
+      draw_poly(window, @body, @main_vertexes, Gosu::Color.new(0xffaaaaaa))
     end
   end
 
@@ -169,7 +174,7 @@ module Grapple
       options ||= {}
       @links = []
       @body = Body.new(options[:mass] || 100, options[:moment] || 100)
-      @vertices = [
+      @vertexes = [
         [-5, -50],
         [-5, 25],
         [-22, 25],
@@ -183,8 +188,8 @@ module Grapple
         [25, 25],
         [5, 25],
         [5, -50],
-      ].map{|x,y| Vec2.new(0.3*x, 0.3*y) }
-      @shape = Shape::Poly.new(@body, @vertices, Vec2.new(0,0)) # body, verts, offset
+      ].map{|x,y| Vec2.new(GRAPPLE_SIZE*x, GRAPPLE_SIZE*y) }
+      @shape = Shape::Poly.new(@body, @vertexes, Vec2.new(0,0)) # body, verts, offset
       @shape.collision_type = :hook
       @shape.u = 0.99
       @shape.group = :grapple
@@ -193,15 +198,7 @@ module Grapple
     end
 
     def draw(window)
-      #@image ||= Gosu::Image.new(window, "grapple.png", false)
-      #@image.draw_rot(@body.p.x, @body.p.y, 0, @body.a.radians_to_gosu)
-
-      col = Gosu::Color.new(0xffff0000)
-      @vertices.each_edge do |a, b|
-        a = rot_point(@body, a)
-        b = rot_point(@body, b)
-        window.draw_line(a.x, a.y, col, b.x, b.y, col)
-      end
+      draw_poly(window, @body, @vertexes, Gosu::Color.new(0xffff0000))
     end
   end
 
@@ -219,14 +216,14 @@ module Grapple
 
       @ground = Ground.new(@space)
 
+      @grapple_origin = Vec2.new(200.0, 370.0)
+
       @rope = Rope.new(@space, :length => 15)
       @hook = GrappleHook.new(@space)
-      joint = Joint::Pin.new(@hook.body, @rope.links.last, Vec2.new(0.0, -20.0 * 0.3), Vec2.new(0.0, 0.0))
+      joint = Joint::Pin.new(@hook.body, @rope.links.last, Vec2.new(0.0, -20.0 * GRAPPLE_SIZE), Vec2.new(0.0, 0.0))
       @space.add_joint(joint)
-      @rope.links.each_with_index{|link, i| link.p = Vec2.new(300 + 100*Math.sin(i.to_f * Math::PI*2 / @rope.links.size), 200) }
-      @hook.body.p = Vec2.new(350, 200)
-
-      @grapple_origin = Vec2.new(200.0, 370.0)
+      @rope.links.each_with_index{|link, i| link.p = Vec2.new(@grapple_origin.x + 100*Math.cos(i.to_f * Math::PI*2 / @rope.links.size), @grapple_origin.y) }
+      @hook.body.p = @grapple_origin
 
       attach = Joint::Slide.new(@ground.body, @rope.links.first, @grapple_origin, Vec2.new(0.0, 0.0), 0, 0)
       @space.add_joint(attach)
