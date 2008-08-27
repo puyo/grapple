@@ -268,7 +268,7 @@ module Grapple
       SUBSTEPS.times do
         # Check keyboard
         if button_down? Gosu::Button::KbSpace
-          @hook.body.v = Vec2.new(50, -200)
+          @hook.body.v = Vec2.new(50, -100)
         end
         if button_down? char_to_button_id('r')
           @hook.body.p = @grapple_origin
