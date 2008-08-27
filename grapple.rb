@@ -287,8 +287,7 @@ module Grapple
       @hook = GrappleHook.new(@space)
       joint = Joint::Pin.new(@hook.body, @rope.links.last, Vec2.new(0.0, -20.0 * GRAPPLE_SIZE), Vec2.new(0.0, 0.0))
       @space.add_joint(joint)
-      @rope.links.each_with_index{|link, i| link.p = Vec2.new(@grapple_origin.x + 100*Math.cos(i.to_f * Math::PI*2 / @rope.links.size), @grapple_origin.y) }
-      @hook.body.p = @grapple_origin
+      reset_hook
 
       attach = Joint::Slide.new(@ground.body, @rope.links.first, @grapple_origin, Vec2.new(0.0, 0.0), 0, 0)
       @space.add_joint(attach)
@@ -333,8 +332,7 @@ module Grapple
           @hook.body.v = Vec2.new(50, -100)
         end
         if button_down? char_to_button_id('r')
-          @hook.body.p = @grapple_origin
-          @rope.links.each{|link| link.p = @grapple_origin }
+          reset_hook
         end
         @space.step(@dt)
       end
@@ -357,6 +355,11 @@ module Grapple
         attach = Joint::Slide.new(@ground.body, @rope.links.first, @grapple_origin, Vec2.new(0.0, 0.0), 0, 0)
         @space.add_joint(attach)
       end
+    end
+
+    def reset_hook
+      @hook.body.p = @grapple_origin
+      @rope.links.each_with_index{|link, i| link.p = Vec2.new(@grapple_origin.x + 10*Math.cos(i.to_f * Math::PI*2 / @rope.links.size), @grapple_origin.y) }
     end
   end
 end
