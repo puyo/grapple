@@ -3,69 +3,10 @@
 require 'rubygems' rescue nil
 require 'rubygame'
 require 'chipmunk'
-
-class Array
-  # e.g. [1,2,3].each_link yields [1,2], [2,3]
-  def each_link
-    prev = first
-    self[1, size].each do |item|
-      yield prev, item
-      prev = item
-    end
-  end
-
-  def each_edge
-    size.times do |n|
-      yield self[n], self[(n + 1) % size]
-    end
-  end
-end
-
-def rot_point(body, vec2)
-  x = vec2.x
-  y = vec2.y
-  a = body.a
-  body.p + CP::Vec2.new(x*Math.cos(a) - y*Math.sin(a), x*Math.sin(a) + y*Math.cos(a))
-end
-
-module Rubygame::Surface::Fixes
-  def draw_line_safe(p1, p2, col)
-    if p1[0] < 0.0 or p1[1] < 0.0 or p2[0] < 0.0 or p2[1] < 0.0
-      return
-    end
-    draw_line_old(p1, p2, col)
-  end
-end
-
-module Rubygame::Surface::Chipmunk
-  def draw_chipmunk_poly(body, vertexes, colour)
-    vertexes.each_edge do |a, b|
-      a = rot_point(body, a)
-      b = rot_point(body, b)
-      draw_line([a.x, a.y], [b.x, b.y], colour)
-    end
-  end
-
-  def draw_chipmunk_segment(body, vertexes, width, colour)
-    a, b = vertexes[0], vertexes[1]
-    a = rot_point(body, a)
-    b = rot_point(body, b)
-    draw_line([a.x, a.y - width], [b.x, b.y - width], colour)
-    draw_line([a.x, a.y + width], [b.x, b.y + width], colour)
-  end
-
-  def draw_chipmunk_circle(body, radius, colour, options=nil)
-    draw_circle([body.p.x, body.p.y], radius, colour)
-  end
-end
-
-class Rubygame::Surface
-  include Rubygame::Surface::Fixes
-  alias draw_line_old draw_line
-  alias draw_line draw_line_safe 
-
-  include Rubygame::Surface::Chipmunk
-end
+require 'extensions/array'
+require 'extensions/rubygame/surface/chipmunk'
+require 'extensions/rubygame/surface/fixes'
+require 'extensions/chipmunk/vec2'
 
 # A grappling hook demo
 module Grapple
@@ -111,7 +52,7 @@ module Grapple
       exit
     when :space
       #@hook_velocity = nil
-      reset_hook
+      #reset_hook
     end
   end
 
@@ -119,7 +60,7 @@ module Grapple
     case event.key
     when :space
       #@hook_velocity = Vec2.new(50, -100)
-      @hook.body.v = Vec2.new(150, -400)
+      @hook.body.v = Vec2.new(200, -400)
     when :r
       reset_hook
     end
