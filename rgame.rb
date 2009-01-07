@@ -26,10 +26,13 @@ module Grapple
     @screen = Rubygame::Screen.new [SCREEN_WIDTH, SCREEN_HEIGHT]
     @events = Rubygame::EventQueue.new
     @events.enable_new_style_events
+    @clock = Rubygame::Clock.new
+    @clock.target_framerate = 40
 
     init_physics
 
     loop do
+      @clock.tick
       @events.each do |event|
         case event
         when Rubygame::Events::QuitRequested
