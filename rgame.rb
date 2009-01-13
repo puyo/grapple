@@ -66,6 +66,10 @@ module Grapple
     when :space
       #@hook_velocity = Vec2.new(50, -100)
       @hook.body.v = Vec2.new(200, -400)
+    when :p
+      @rope.remove_first
+      attach = Joint::Slide.new(@ground.body, @rope.links.first, @grapple_origin, Vec2.new(0.0, 0.0), 0, 0)
+      @space.add_joint(attach)
     when :r
       reset_hook
     end
@@ -81,7 +85,7 @@ module Grapple
 
     @ground = Ground.new(@space)
 
-    @grapple_origin = Vec2.new(200.0, 370.0)
+    @grapple_origin = Vec2.new(200.0, -70.0)
 
     @rope = Rope.new(@space, :length => 45)
     @hook = GrappleHook.new(@space)
@@ -143,21 +147,10 @@ module Grapple
     @screen.update
   end
 
-  def button_down(id)
-    case id
-    when Gosu::Button::KbEscape, char_to_button_id('q')
-      close
-    when char_to_button_id('p')
-      @rope.remove_first
-      attach = Joint::Slide.new(@ground.body, @rope.links.first, @grapple_origin, Vec2.new(0.0, 0.0), 0, 0)
-      @space.add_joint(attach)
-    end
-  end
-
   def self.reset_hook
-    @hook.body.p = @grapple_origin
+    @hook.body.p = @ground.body.p + @grapple_origin
     @hook.body.v = Vec2.new(0, 0)
-    @rope.links.each_with_index{|link, i| link.v = Vec2.new(0, 0); link.p = Vec2.new(@grapple_origin.x + 10*Math.cos(i.to_f * Math::PI*2 / @rope.links.size), @grapple_origin.y) }
+    @rope.links.each_with_index{|link, i| link.v = Vec2.new(0, 0); link.p = Vec2.new(@hook.body.p.x + 10*Math.cos(i.to_f * Math::PI*2 / @rope.links.size), @hook.body.p.y) }
   end
 
   class Rope
@@ -174,8 +167,8 @@ module Grapple
       @circles = []
       @length.times do |n|
         link = Body.new(10, 10)
-        seg = Shape::Circle.new(link, 1.0, Vec2.new(0, 0))
-        #seg = Shape::Segment.new(link, Vec2.new(0, 0), Vec2.new(1, 0), 1)
+        #seg = Shape::Circle.new(link, 1.0, Vec2.new(0, 0))
+        seg = Shape::Segment.new(link, Vec2.new(0, 0), Vec2.new(2, 0), 1)
         seg.collision_type = :rope
         seg.u = 0.5
         seg.group = :grapple
@@ -212,9 +205,9 @@ module Grapple
         i += 1
       end
 
-      @circles.each do |circle|
-        window.draw_chipmunk_circle(circle.body, 1.0, Rubygame::Color[:white])
-      end
+      #@circles.each do |circle|
+        #window.draw_chipmunk_circle(circle.body, 1.0, Rubygame::Color[:white])
+      #end
     end
 
     def remove_first
@@ -231,18 +224,24 @@ module Grapple
     attr_reader :body
 
     def initialize(space)
-      @links = []
+      @links =[]
       @body = Body.new(INF, INF)
-      @p1, @p2 = Vec2.new(0, 500), Vec2.new(SCREEN_WIDTH, 440)
-      @width = 100
-      @seg = Shape::Segment.new(@body, @p1, @p2, @width)
-      @seg.collision_type = :ground
-      @seg.u = 0.99
-      space.add_static_shape(@seg)
+      @vertexes = [
+        [0, 0], # bottom left
+        [0, 500], # top left
+        [1000, 500], # top right
+        [1000, -100], # bottom right
+      ].map{|x,y| Vec2.new(x, y) }
+      @body.p = Vec2.new(0, 400)
+      @shape = Shape::Poly.new(@body, @vertexes, Vec2.new(0,0)) # body, verts, offset
+      @shape.collision_type = :ground
+      @shape.u = 0.99
+      space.add_static_shape(@shape)
     end
 
     def draw(window)
-      window.draw_chipmunk_segment(body, [@p1, @p2], @width, [0,0,255])
+      #window.draw_chipmunk_segment(body, [@p1, @p2], @width, [0,0,255])
+      window.draw_chipmunk_poly(body, @vertexes, [0, 0, 255])
     end
   end
 
