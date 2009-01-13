@@ -18,8 +18,8 @@ module Grapple
 
   GRAPPLE_SIZE = 0.3
 
-  # Number of physics updates per frame.
-  SUBSTEPS = 4
+  # Speed of the physics simulation.
+  SPEED = 0.005
   include CP
 
   def self.main
@@ -27,12 +27,13 @@ module Grapple
     @events = Rubygame::EventQueue.new
     @events.enable_new_style_events
     @clock = Rubygame::Clock.new
+    @last_runtime = Rubygame::Clock.runtime
     @clock.target_framerate = 40
 
     init_physics
 
+    @dt = 0
     loop do
-      @clock.tick
       @events.each do |event|
         case event
         when Rubygame::Events::QuitRequested
@@ -44,6 +45,7 @@ module Grapple
         end
       end
 
+      @dt = @clock.tick
       update
       draw
     end
@@ -76,7 +78,6 @@ module Grapple
     @space = Space.new
     @space.damping = 0.8    
     @space.gravity = Vec2.new(0.0, 10.0)
-    @dt = (1.0/60.0)
 
     @ground = Ground.new(@space)
 
@@ -127,8 +128,8 @@ module Grapple
 
   def self.update
     #@hook.body.v = @hook_velocity if @hook_velocity
-    SUBSTEPS.times do
-      @space.step(@dt)
+    @dt.to_i.times do
+      @space.step(SPEED)
     end
   end
 
