@@ -264,7 +264,7 @@ module Grapple
     include CP
 
     def initialize
-      super(SCREEN_WIDTH, SCREEN_HEIGHT, false, 16)
+      super(SCREEN_WIDTH, SCREEN_HEIGHT, true, 16)
       self.caption = "Grapple"
 
       @space = Space.new
@@ -319,14 +319,15 @@ module Grapple
     end
 
     def update
+      # Check keyboard
+      if button_down? Gosu::Button::KbSpace
+        @hook.body.v = Vec2.new(50, -100)
+      end
+      if button_down? char_to_button_id('r')
+        reset_hook
+      end
+
       SUBSTEPS.times do
-        # Check keyboard
-        if button_down? Gosu::Button::KbSpace
-          @hook.body.v = Vec2.new(50, -100)
-        end
-        if button_down? char_to_button_id('r')
-          reset_hook
-        end
         @space.step(@dt)
       end
     end
@@ -337,6 +338,11 @@ module Grapple
       @ground.draw(self)
       @hook.draw(self)
       @castle.draw(self)
+
+      #@t0 = @t0 || Time.now
+      #t = Time.now
+      #p 1.0/(t - @t0)
+      #@t0 = t
     end
 
     def button_down(id)
