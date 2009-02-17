@@ -88,6 +88,8 @@ end
 
 function update(dt)
 	world:update(dt)
+	world:update(dt)
+	world:update(dt)
 end
 
 function draw()
