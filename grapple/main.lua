@@ -45,29 +45,49 @@ local newGrapple = function()
 		love.graphics.setColor(255, 0, 255)
 		love.graphics.polygon(love.draw_line, self.shaft:getPoints())
 		love.graphics.polygon(love.draw_line, self.cross:getPoints())
+		love.graphics.polygon(love.draw_line, self.left_tip:getPoints())
+		love.graphics.polygon(love.draw_line, self.right_tip:getPoints())
 	end
 	--self.hook = newHook()
-	self.body = love.physics.newBody(world, 400, 200)
-	self.body:setAngularDamping(0.1)
+	self.body = love.physics.newBody(world, 400, 100)
+
 	local shaft_v = {
 		-50,   -5,  -- top left
-		-50,   5, -- bottom left
-		 35.5, 5,  -- bototm right
-		 51,   0,  -- tip (far right)
+		-50,    5,  -- bottom left
+		 35.5,  5,  -- bototm right
+		 51,    0,  -- tip (far right)
 		 35.5, -5,  -- top right
 	}
 	self.shaft = love.physics.newPolygonShape(self.body, unpack(shaft_v))
 	self.shaft:setData("Grapple Shaft")
-	self.shaft:setRestitution(0.5)
+
 	local cross_v = {
-		24.5, -24,
-		35,   -24,
-		35,   24,
-		24.5, 24,
+		24, -24,  -- top left
+		35,   -24,  -- top right
+		35,    24,  -- bottom right
+		24,  24,  -- bottom left
 	}
 	self.cross = love.physics.newPolygonShape(self.body, unpack(cross_v))
 	self.cross:setData("Grapple Cross Bar")
-	self.cross:setRestitution(0.5)
+
+	local left_tip_v = {
+		24, -24,
+		35, -24,
+		15, -37,
+		24, -24,
+	}
+	self.left_tip = love.physics.newPolygonShape(self.body, unpack(left_tip_v))
+	self.left_tip:setData("Grapple Left Tip")
+
+	local right_tip_v = {
+		24, 24,
+		35, 24,
+		15, 37,
+		24, 24,
+	}
+	self.right_tip = love.physics.newPolygonShape(self.body, unpack(right_tip_v))
+	self.right_tip:setData("Grapple Right Tip")
+
 	self.body:setMassFromShapes()
 	return self
 end
