@@ -25,7 +25,7 @@ local newCircle = function()
 		love.graphics.setColor(0, 0, 255)
 		love.graphics.circle(love.draw_line, self.body:getX(), self.body:getY(), 28, 20)
 	end
-	self.body = love.physics.newBody(world, 400, 200)
+	self.body = love.physics.newBody(world, 300, 200)
 	self.shape = love.physics.newCircleShape(self.body, 28)
 	self.shape:setRestitution(0.5) -- More bounce
 	self.shape:setData("Ball")
@@ -35,12 +35,6 @@ end
 
 local newHook = function()
 	local self = {}
-	self.body = love.physics.newBody(world, 400, 200)
-	return self
-end
-
-local newGrapple = function()
-	local self = {}
 	function self:draw()
 		love.graphics.setColor(255, 0, 255)
 		love.graphics.polygon(love.draw_line, self.shaft:getPoints())
@@ -48,7 +42,6 @@ local newGrapple = function()
 		love.graphics.polygon(love.draw_line, self.left_tip:getPoints())
 		love.graphics.polygon(love.draw_line, self.right_tip:getPoints())
 	end
-	--self.hook = newHook()
 	self.body = love.physics.newBody(world, 400, 100)
 
 	local shaft_v = {
@@ -88,7 +81,68 @@ local newGrapple = function()
 	self.right_tip = love.physics.newPolygonShape(self.body, unpack(right_tip_v))
 	self.right_tip:setData("Grapple Right Tip")
 
-	self.body:setMassFromShapes()
+	--self.body:setMassFromShapes()
+	self.body:setMass(0, 0, 0.00001, 0.00001)
+	return self
+end
+
+local newRope = function(segments)
+	local self = {}
+	function self:draw()
+		local last = nil
+		for i, segment in ipairs(self.segments) do
+			love.graphics.setColor(i * 255 / #self.segments, 255, 0)
+			--love.graphics.circle(love.draw_line, 
+			--    segment.body:getX(), segment.body:getY(), 
+			--	segment.shape:getRadius(), 8)
+			if last then
+				love.graphics.line(last.body:getX(), last.body:getY(), 
+					segment.body:getX(), segment.body:getY())
+			end
+			last = segment
+		end
+	end
+
+	self.segments = {}
+	local last = ground
+	for i = 1, segments do
+		local body = love.physics.newBody(world, 400 + i * 5, 25)
+		local shape = love.physics.newCircleShape(body, 1)
+		--body:setMass(0, 0, 100 - (i * 40 / #self.segments), 1)
+		shape:setDensity(20)
+		shape:setFriction(0.2)
+		shape:setMaskBits(0xfffd)
+		shape:setCategoryBits(0x0002)
+		shape:setData("Rope")
+		local joint = love.physics.newRevoluteJoint(last.body, body, 
+			body:getX(), body:getY())
+		last = { body = body, shape = shape }
+		self.segments[i] = last
+
+		body:setMass(0, 0, 1, 1)
+		--body:setMassFromShapes()
+	end
+
+	return self
+end
+
+local newGrapple = function()
+	local self = {}
+	self.body = love.physics.newBody(world, 400, 200)
+	self.hook = newHook()
+	self.rope = newRope(60)
+
+	-- Connect the hook and the rope
+	local last_segment = self.rope.segments[#self.rope.segments]
+	last_segment.body:setX(self.hook.body:getX() - 50)
+	last_segment.body:setY(self.hook.body:getY())
+	local joint = love.physics.newRevoluteJoint(last_segment.body, self.hook.body, 
+		self.hook.body:getX() - 50, self.hook.body:getY())
+
+	function self:draw()
+		self.hook:draw()
+		self.rope:draw()
+	end
 	return self
 end
 
@@ -107,8 +161,6 @@ function load()
 end
 
 function update(dt)
-	world:update(dt)
-	world:update(dt)
 	world:update(dt)
 end
 
