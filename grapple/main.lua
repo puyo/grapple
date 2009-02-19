@@ -1,5 +1,3 @@
-text = "No collision yet."
-
 local newWorld = function()
 	local self = love.physics.newWorld(2000, 2000)
 	self:setGravity(0, 100)
@@ -82,7 +80,6 @@ local newHook = function()
 	self.right_tip:setData("Grapple Right Tip")
 
 	self.body:setMassFromShapes()
-	self.body:setMass(0, 0, self.body:getMass()*2, self.body:getInertia())
 	return self
 end
 
@@ -93,13 +90,6 @@ local newRope = function(segments)
 		for i, segment in ipairs(self.segments) do
 			love.graphics.setColor(i * 255 / #self.segments, 255, 0)
 			love.graphics.polygon(love.draw_line, segment.shape:getPoints())
-			--love.graphics.circle(love.draw_line, 
-			--    segment.body:getX(), segment.body:getY(), 
-			--	segment.shape:getRadius(), 8)
-			--if last then
-				--love.graphics.line(last.body:getX(), last.body:getY(), 
-					--segment.body:getX(), segment.body:getY())
-			--end
 			last = segment
 		end
 	end
@@ -107,9 +97,8 @@ local newRope = function(segments)
 	self.segments = {}
 	local last = ground
 	for i = 1, segments do
-		local body = love.physics.newBody(world, 400 + i*19, 25)
-		--local shape = love.physics.newCircleShape(body, 1)
-		local shape = love.physics.newRectangleShape(body, -1, 0, 20, 2)
+		local body = love.physics.newBody(world, 400 + i*10, 25)
+		local shape = love.physics.newRectangleShape(body, 0, 0, 10, 2)
 		shape:setDensity(20)
 		shape:setFriction(0.2)
 		shape:setMaskBits(0xfffd)
@@ -117,17 +106,10 @@ local newRope = function(segments)
 		shape:setData("Rope")
 		local joint = love.physics.newRevoluteJoint(last.body, body, 
 			body:getX(), body:getY())
-		joint:setLimitsEnabled(true)
-		joint:setLimits(-45, 45)
-		--joint:setMaxMotorTorque(10)
 		last = { body = body, shape = shape, joint = joint }
 		self.segments[i] = last
-
 		body:setMassFromShapes()
-		--body:setMass(0, 0, 0.00001, 10)
 	end
-
-	self.segments[1].joint:setLimitsEnabled(false)
 
 	return self
 end
@@ -136,24 +118,16 @@ local newGrapple = function()
 	local self = {}
 	self.body = love.physics.newBody(world, 400, 200)
 	self.hook = newHook()
-	self.rope = newRope(10)
+	self.rope = newRope(20)
 
-	-- Connect the hook and the rope
+	-- Join hook to rope
 	local last_segment = self.rope.segments[#self.rope.segments]
-	last_segment.body:setX(self.hook.body:getX() - 65)
-	last_segment.body:setY(self.hook.body:getY())
-	--local joint = love.physics.newRevoluteJoint(last_segment.body, 
-	    --self.hook.body, 
-		--self.hook.body:getX() - 65,
-		--self.hook.body:getY())
-	--joint:setLimitsEnabled(true)
-	--joint:setLimits(-45, 45)
-	local joint = love.physics.newDistanceJoint(last_segment.body,
-	    self.hook.body,
-		last_segment.body:getX(),
-		last_segment.body:getY(),
-		self.hook.body:getX() - 30,
-		self.hook.body:getY())
+	self.hook.body:setX(last_segment.body:getX() + 10 + 50)
+	self.hook.body:setY(last_segment.body:getY())
+	local joint = love.physics.newRevoluteJoint(last_segment.body, 
+	    self.hook.body, 
+		last_segment.body:getX() + 10,
+		last_segment.body:getY())
 
 	function self:draw()
 		self.hook:draw()
@@ -168,8 +142,8 @@ local initFont = function()
 end
 
 function load()
+	text = "No collision yet."
 	initFont()
-
 	world = newWorld()
 	ground = newGround()
 	circle = newCircle()
@@ -178,7 +152,7 @@ end
 
 function update(dt)
 	world:update(dt)
-	world:update(dt)
+	world:update(dt) -- twice as fast!
 end
 
 function draw()
@@ -192,8 +166,19 @@ function draw()
 end
 
 function keypressed(k)
-	if k == love.key_space then
-		circle.body:applyImpulse(1000000, -10000000)
+	local scale = 1000 * 1000
+	if k == love.key_up then
+		circle.body:applyImpulse(0, -10*scale)
+	elseif k == love.key_left then
+		circle.body:applyImpulse(-10*scale, 0)
+	elseif k == love.key_right then
+		circle.body:applyImpulse(10*scale, 0)
+	elseif k == love.key_down then
+		circle.body:applyImpulse(0, 10*scale)
+	elseif k == love.key_q then
+		love.system.exit()
+	elseif k == love.key_escape then
+		love.system.exit()
 	end
 end
 
