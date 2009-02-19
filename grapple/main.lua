@@ -83,6 +83,8 @@ local newHook = function()
 		shape:setRestitution(0)
 		shape:setDensity(10)
 		shape:setFriction(0.8)
+		shape:setMaskBits(0xfffd)
+		shape:setCategoryBits(0x0002)
 	end
 
 	self.body:setMassFromShapes()
