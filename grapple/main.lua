@@ -9,11 +9,34 @@ local newGround = function()
 	local self = {}
 	function self:draw()
 		love.graphics.setColor(0, 255, 0)
-		love.graphics.polygon(love.draw_line, self.shape:getPoints())
+		for i, shape in ipairs(self.shapes) do
+			love.graphics.polygon(love.draw_line, shape:getPoints())
+		end
 	end
 	self.body = love.physics.newBody(world, 0, 0, 0)
-	self.shape = love.physics.newRectangleShape(self.body, 400, 500, 600, 10)
-	self.shape:setData("Ground")
+	self.shapes = {}
+	self.shapes[1] = love.physics.newRectangleShape(self.body, -1000, 500, 4000, 20)
+	self.shapes[1]:setData("Ground")
+
+	self.shapes[2] = love.physics.newRectangleShape(self.body, 0, 0, 20, 1000)
+	self.shapes[2]:setData("Ground")
+
+	self.shapes[3] = love.physics.newRectangleShape(self.body, 800, 0, 20, 1000)
+	self.shapes[3]:setData("Ground")
+	return self
+end
+
+local newSquare = function()
+	local self = {}
+	function self:draw()
+		love.graphics.setColor(0, 0, 255)
+		love.graphics.polygon(love.draw_line, self.shape:getPoints())
+	end
+	self.body = love.physics.newBody(world, 500, 200)
+	self.shape = love.physics.newRectangleShape(self.body, 0, 0, 50, 50)
+	self.shape:setRestitution(0.2)
+	self.shape:setData("Square")
+	self.body:setMassFromShapes()
 	return self
 end
 
@@ -82,7 +105,7 @@ local newHook = function()
 	for i, shape in ipairs({self.shaft, self.cross, self.left_tip, self.right_tip}) do
 		shape:setRestitution(0)
 		shape:setDensity(10)
-		shape:setFriction(0.8)
+		shape:setFriction(0.7)
 		shape:setMaskBits(0xfffd)
 		shape:setCategoryBits(0x0002)
 	end
@@ -105,22 +128,25 @@ local newRope = function(segments)
 	self.segment_length = 5
 
 	self.segments = {}
-	local last = ground
+	local last -- = ground
 	for i = 1, segments do
-		local body = love.physics.newBody(world, 400 + i*self.segment_length, 25)
+		local body = love.physics.newBody(world, 200 + i*self.segment_length, 25)
 		local shape = love.physics.newRectangleShape(body, 0, 0, 
 			self.segment_length, 1)
-		shape:setDensity(50)
-		shape:setFriction(0.5)
+		shape:setDensity(20)
+		shape:setFriction(0.2)
 		shape:setMaskBits(0xfffd)
 		shape:setCategoryBits(0x0002)
 		shape:setData("Rope")
 		shape:setRestitution(0)
-		local joint = love.physics.newRevoluteJoint(last.body, body, 
-			body:getX(), body:getY())
+		local joint
+		if last then
+			joint = love.physics.newRevoluteJoint(last.body, body, 
+				body:getX(), body:getY())
+		end
+		body:setMassFromShapes()
 		last = { body = body, shape = shape, joint = joint }
 		self.segments[i] = last
-		body:setMassFromShapes()
 	end
 
 	return self
@@ -160,18 +186,22 @@ function load()
 	world = newWorld()
 	ground = newGround()
 	circle = newCircle()
+	square = newSquare()
 	circle.body:setMass(0, 0, 0, 0)
+	square.body:setMass(0, 0, 0, 0)
 	grapple = newGrapple()
 end
 
 function update(dt)
 	world:update(dt)
 	world:update(dt) -- twice as fast!
+	world:update(dt) -- twice as fast!
 end
 
 function draw()
 	ground:draw()
 	circle:draw()
+	square:draw()
 	grapple:draw()
 
 	-- text
