@@ -85,13 +85,14 @@ module Grapple
       @bodies = []
       @vertexes = []
       @shapes = []
-      @segment_length = 10
+      @segment_length = 6
+      @segment_width = 2
       @length.times do |n|
         vertexes = [
-          [-@segment_length/2, -2], # top left
-          [-@segment_length/2, +2], # bottom left
-          [+@segment_length/2, +2], # bottom right
-          [+@segment_length/2, -2], # top right
+          [-@segment_length/2, -@segment_width/2], # top left
+          [-@segment_length/2, +@segment_width/2], # bottom left
+          [+@segment_length/2, +@segment_width/2], # bottom right
+          [+@segment_length/2, -@segment_width/2], # top right
         ].map{|x,y| Vec2.new(x, y) }
         mass = 1
         #body = Body.new(mass, moment_for_poly(mass, vertexes, Vec2.new(0, 0)))
@@ -299,7 +300,7 @@ module Grapple
 
       @grapple_origin = Vec2.new(200.0, 370.0)
 
-      @rope = Rope.new(@space, :length => 45)
+      @rope = Rope.new(@space, :length => 100)
       @hook = GrappleHook.new(@space)
       # attach rope and hook
       between = @rope.links.last.p + Vec2.new(@rope.segment_length/2, 0)
@@ -314,7 +315,7 @@ module Grapple
       @space.add_joint(attach)
 
       # make a nice hanging rope
-      @rope2 = Rope.new(@space, :length => 10)
+      @rope2 = Rope.new(@space, :length => 40)
       hanging = Body.new(INF, INF)
       joint = Joint::Pin.new(hanging, @rope2.links.first, Vec2.new(0, 0), Vec2.new(0, 0))
       @space.add_joint(joint)
