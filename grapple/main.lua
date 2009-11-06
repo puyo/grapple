@@ -26,6 +26,20 @@ local newGround = function()
 	return self
 end
 
+local newTriangle = function()
+	local self = {}
+	function self:draw()
+		love.graphics.setColor(0, 0, 255)
+		love.graphics.polygon(love.draw_line, self.shape:getPoints())
+	end
+	self.body = love.physics.newBody(world, 100, 200)
+	self.shape = love.physics.newPolygonShape(self.body, 0, 0, 0, 150, 150, 150, 0, 0)
+	self.shape:setRestitution(0.2)
+	self.shape:setData("Triangle")
+	self.body:setMassFromShapes()
+	return self
+end
+
 local newSquare = function()
 	local self = {}
 	function self:draw()
@@ -186,9 +200,11 @@ function load()
 	world = newWorld()
 	ground = newGround()
 	circle = newCircle()
-	square = newSquare()
 	circle.body:setMass(0, 0, 0, 0)
+	square = newSquare()
 	square.body:setMass(0, 0, 0, 0)
+	triangle = newTriangle()
+	triangle.body:setMass(0, 0, 0, 0)
 	grapple = newGrapple()
 end
 
@@ -202,6 +218,7 @@ function draw()
 	ground:draw()
 	circle:draw()
 	square:draw()
+	triangle:draw()
 	grapple:draw()
 
 	-- text
