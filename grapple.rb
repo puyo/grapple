@@ -62,7 +62,7 @@ module Grapple
 
   SCREEN_WIDTH = 800
   SCREEN_HEIGHT = 600
-  FULLSCREEN = true
+  FULLSCREEN = false
 
   INF = 1e100
 
