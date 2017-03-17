@@ -1,7 +1,7 @@
 require 'rubygems' rescue nil
 require 'gosu'
 require 'chipmunk'
-require 'extensions/array'
+require_relative './extensions/array'
 
 def rot_point(body, vec2)
   x = vec2.x
@@ -43,15 +43,15 @@ end
 
 # Convenience methods for converting between Gosu degrees, radians, and Vec2
 # vectors
-class Numeric 
+class Numeric
   def gosu_to_radians
     (self - 90) * Math::PI / 180.0
   end
-  
+
   def radians_to_gosu
     self * 180.0 / Math::PI + 90
   end
-  
+
   def radians_to_vec2
     CP::Vec2.new(Math::cos(self), Math::sin(self))
   end
@@ -62,6 +62,7 @@ module Grapple
 
   SCREEN_WIDTH = 800
   SCREEN_HEIGHT = 600
+  FULLSCREEN = true
 
   INF = 1e100
 
@@ -111,8 +112,8 @@ module Grapple
 
       i = 0
       @bodies.each_link do |prev_body, body|
-        joint = Joint::Pivot.new(prev_body, body, body.p - Vec2.new(@segment_length/2, 0))
-        space.add_joint(joint)
+        joint = CP::Constraint::PivotJoint.new(prev_body, body, body.p - Vec2.new(@segment_length/2, 0))
+        space.add_constraint(joint)
         i += 1
       end
     end
@@ -269,7 +270,11 @@ module Grapple
       @body = Body.new(mass, moment)
       space.add_body(@body)
       for v in @vertexes
-        shape = Shape::Poly.new(@body, v, Vec2.new(0, 0)) # body, verts, offset
+        begin
+          shape = Shape::Poly.new(@body, v, Vec2.new(0, 0)) # body, verts, offset
+        rescue ArgumentError
+          shape = Shape::Poly.new(@body, v.reverse, Vec2.new(0, 0))
+        end
         shape.collision_type = :hook
         shape.u = 1.0
         shape.group = :grapple
@@ -288,11 +293,11 @@ module Grapple
     include CP
 
     def initialize
-      super(SCREEN_WIDTH, SCREEN_HEIGHT, false, 16)
+      super(SCREEN_WIDTH, SCREEN_HEIGHT, FULLSCREEN, 16)
       self.caption = "Grapple"
 
       @space = Space.new
-      @space.damping = 0.8    
+      @space.damping = 0.8
       @space.gravity = Vec2.new(0, 10.0)
       @dt = (1.0/60.0)
 
@@ -305,20 +310,20 @@ module Grapple
       # attach rope and hook
       between = @rope.links.last.p + Vec2.new(@rope.segment_length/2, 0)
       @hook.body.p = between + Vec2.new(-@hook.shaft_v.first.x, 0)
-      joint = Joint::Pivot.new(@hook.body, @rope.links.last, between)
-      @space.add_joint(joint)
+      joint = CP::Constraint::PivotJoint.new(@hook.body, @rope.links.last, between)
+      @space.add_constraint(joint)
       reset_hook
 
       # attach other end of rope to ground
       @rope.links.first.p = @grapple_origin
-      attach = Joint::Pivot.new(@ground.body, @rope.links.first, @grapple_origin)
-      @space.add_joint(attach)
+      attach = CP::Constraint::PivotJoint.new(@ground.body, @rope.links.first, @grapple_origin)
+      @space.add_constraint(attach)
 
       # make a nice hanging rope
       @rope2 = Rope.new(@space, :length => 40)
       hanging = Body.new(INF, INF)
-      joint = Joint::Pin.new(hanging, @rope2.links.first, Vec2.new(0, 0), Vec2.new(0, 0))
-      @space.add_joint(joint)
+      joint = CP::Constraint::PinJoint.new(hanging, @rope2.links.first, Vec2.new(0, 0), Vec2.new(0, 0))
+      @space.add_constraint(joint)
       @rope2.links.each_with_index{|link, i| link.p = Vec2.new(100 - 10*i, 200) }
       hanging.p = Vec2.new(150, 0)
 
@@ -339,12 +344,15 @@ module Grapple
       end
       @space.add_collision_func(:hook, :ground) do
         #p 'hook ground ' + rand.to_s
+        true
       end
       @space.add_collision_func(:hook, :castle) do
         #p 'hook castle ' + rand.to_s
+        true
       end
       @space.add_collision_func(:rope, :castle) do
         #p 'rope castle ' + rand.to_s
+        true
       end
     end
 
@@ -385,8 +393,8 @@ module Grapple
         close
       when char_to_button_id('p')
         @rope.remove_first
-        attach = Joint::Slide.new(@ground.body, @rope.links.first, @grapple_origin, Vec2.new(0, 0), 0, 0)
-        @space.add_joint(attach)
+        attach = CP::Constraint::SlideJoint.new(@ground.body, @rope.links.first, @grapple_origin, Vec2.new(0, 0), 0, 0)
+        @space.add_constraint(attach)
       end
     end
 
